@@ -48,7 +48,7 @@ export function MosaicIndex(lyr, nodes, optsArg) {
 
   // fill gaps
   // (assumes that tiles have been allocated to shapes and mosaic has been flattened)
-  this.removeGaps = function(filter) {
+  this.removeGaps = function(filter, adjacentShapesFilter) {
     if (!opts.flat) {
       error('MosaicIndex#removeGaps() should only be called with a flat mosaic');
     }
@@ -57,7 +57,9 @@ export function MosaicIndex(lyr, nodes, optsArg) {
       var tile = mosaic[tileId];
       return filter(tile[0]); // test tile ring, ignoring any holes (does this matter?)
     });
-    filledIds.forEach(assignTileToAdjacentShape);
+    filledIds.forEach(function(tileId) {
+      assignTileToAdjacentShape(tileId, adjacentShapesFilter)
+    });
     return {
       removed: filledIds.length,
       remaining: remainingIds.length - filledIds.length
@@ -89,7 +91,7 @@ export function MosaicIndex(lyr, nodes, optsArg) {
     return mosaic[id];
   }
 
-  function assignTileToAdjacentShape(tileId) {
+  function assignTileToAdjacentShape(tileId, adjacentShapesFilter) {
     var ring = mosaic[tileId][0];
     var arcs = nodes.arcs;
     var arcId, neighborShapeId, neighborTileId, arcLen;
@@ -100,6 +102,7 @@ export function MosaicIndex(lyr, nodes, optsArg) {
       if (neighborTileId < 0) continue;
       neighborShapeId = tileShapeIndex.getShapeIdByTileId(neighborTileId);
       if (neighborShapeId < 0) continue;
+      if (adjacentShapesFilter(neighborShapeId)) continue;
       arcLen = geom.getPathPerimeter([arcId], arcs);
       if (arcLen > maxArcLen) {
         shapeId = neighborShapeId;

@@ -84,6 +84,9 @@ export function getOptionParser() {
       offsetOpt = {
         describe: 'padding as distance or pct of h/w (single value or list)',
         type: 'distance'
+      },
+      mergeGapsWhereOpt = {
+        describe: 'use a JS expression where to merge adjacent shapes for filling gaps'
       };
 
   var parser = new CommandParser();
@@ -539,7 +542,8 @@ export function getOptionParser() {
     .option('name', nameOpt)
     .option('no-snap', noSnapOpt)
     .option('target', targetOpt)
-    .option('no-replace', noReplaceOpt);
+    .option('no-replace', noReplaceOpt)
+    .option('merge-gaps-where', mergeGapsWhereOpt);
 
   parser.command('divide')
     .describe('divide lines by polygons, copy polygon data to lines')

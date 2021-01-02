@@ -9,6 +9,7 @@ import { NodeCollection } from '../topology/mapshaper-nodes';
 import { MosaicIndex } from '../polygons/mapshaper-mosaic-index';
 import utils from '../utils/mapshaper-utils';
 import { message } from '../utils/mapshaper-logging';
+import { compileValueExpression } from '../expressions/mapshaper-expressions';
 
 // Assumes that arcs do not intersect except at endpoints
 export function dissolvePolygonLayer2(lyr, dataset, opts) {
@@ -58,11 +59,11 @@ function groupPolygons2(lyr, getGroupId) {
   }, []);
 }
 
-function getGapRemovalMessage(removed, retained, areaLabel) {
+function getGapRemovalMessage(removed, retained, areaLabel, adjacentShapesLabel) {
   var msg;
   if (removed > 0 === false) return '';
-  return utils.format('Closed %,d / %,d gap%s using %s',
-      removed, removed + retained, utils.pluralSuffix(removed), areaLabel);
+  return utils.format('Closed %,d / %,d gap%s using %s. %s',
+      removed, removed + retained, utils.pluralSuffix(removed), areaLabel, adjacentShapesLabel);
 }
 
 export function dissolvePolygonGroups2(groups, lyr, dataset, opts) {
@@ -75,7 +76,8 @@ export function dissolvePolygonGroups2(groups, lyr, dataset, opts) {
   var mosaicIndex = new MosaicIndex(lyr, nodes, mosaicOpts);
   var sliverOpts = utils.extend({sliver_control: 1}, opts);
   var filterData = getSliverFilter(lyr, dataset, sliverOpts);
-  var cleanupData = mosaicIndex.removeGaps(filterData.filter);
+  var adjacentShapesFilter = getAdjacentShapesFilter(lyr, dataset, opts);
+  var cleanupData = mosaicIndex.removeGaps(filterData.filter, adjacentShapesFilter.filter);
   var pathfind = getRingIntersector(mosaicIndex.nodes);
   var dissolvedShapes = groups.map(function(shapeIds) {
     var tiles = mosaicIndex.getTilesByShapeIds(shapeIds);
@@ -89,9 +91,28 @@ export function dissolvePolygonGroups2(groups, lyr, dataset, opts) {
   // convert self-intersecting rings to outer/inner rings, for OGC
   // Simple Features compliance
   dissolvedShapes = fixTangentHoles(dissolvedShapes, pathfind);
-  var gapMessage = getGapRemovalMessage(cleanupData.removed, cleanupData.remaining, filterData.label);
+  var gapMessage = getGapRemovalMessage(cleanupData.removed, cleanupData.remaining, filterData.label, adjacentShapesFilter.label);
   if (gapMessage) message(gapMessage);
   return dissolvedShapes;
+}
+
+function getAdjacentShapesFilter(lyr, dataset, opts) {
+  var filter, label;
+  if (opts.merge_gaps_where) {
+    var filterFunc = compileValueExpression(opts.merge_gaps_where, lyr, dataset.arcs);
+    filter = function(shapeId) {
+      var result = filterFunc(shapeId)
+      return !result
+    }
+    label = "Assigned gaps where: " + opts.merge_gaps_where
+  } else {
+    filter = function(shapeId) { return false }
+    label = ""
+  }
+  return {
+    filter: filter,
+    label: label
+  };
 }
 
 function dissolveTileGroup2(tiles, pathfind) {

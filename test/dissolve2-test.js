@@ -122,6 +122,50 @@ describe('mapshaper-dissolve2.js dissolve tests', function () {
       };
       test(input, '', expect, done);
     })
+
+    it('dissolving polygons with gaps assigns the gaps according to merge-gaps-where', function (done) {
+
+      var input = {
+        type: 'FeatureCollection',
+        features: [{
+          type: "Feature",
+          geometry: {
+            type: 'Polygon',
+            coordinates: [[[3, 102], [2.5, 101], [3, 100], [0, 100], [0, 102], [3, 102]]]
+          },
+          properties: { foo: "1" }
+        }, {
+          type: "Feature",
+          geometry: {
+            type: 'Polygon',
+            coordinates: [[[4, 100], [3, 100], [3.5, 101], [3, 102], [4, 102], [4, 100]]]
+          },
+          properties: { foo: "2" }
+        }]
+      };
+      var expect = [{
+        type: "Feature",
+          geometry: {
+            type: 'Polygon',
+            coordinates: [[[3, 100], [0, 100], [0, 102], [3, 102], [3.5, 101], [3, 100]]]
+          },
+          properties: {
+            foo: "1"
+          }
+        },
+        {
+          type: "Feature",
+            geometry: {
+              type: 'Polygon',
+              coordinates: [[[3, 100], [3.5, 101], [3, 102], [4, 102], [4, 100], [3, 100]]]
+            },
+            properties: {
+              foo: "2"
+            }
+          }
+      ];
+      test(input, 'foo gap-fill-area=1 merge-gaps-where=\'foo == "1"\'', expect, done);
+    })
   })
 
 
